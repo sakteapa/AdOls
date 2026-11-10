@@ -1,0 +1,6 @@
+{
+  "name": "ApexECU Studio — India ECU Flash Remapper & Diagnostic Suite",
+  "description": "Universal automotive ECU flash remapper, 3D map visualizer, tune forensic detector, immobilizer tool, and printable Before/After calibration report suite tailored for Indian vehicles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

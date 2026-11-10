@@ -1,0 +1,6 @@
+{
+  "summary":  "Updated implementation plan in Mizo incorporating the Stored Fault Code (DTC) & EEPROM Reader module. When a flash file (.bin) or EEPROM dump (.bin/.eep) is opened, it automatically scans for stored active and pending error codes (Fehlerspeicher), displays standard SAE/OEM descriptions with Mizo explanations, and provides a 1-click feature to clear stored fault codes directly in the dump.",
+  "updatedAt":  "2026-11-10T09:53:11.814473233Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
