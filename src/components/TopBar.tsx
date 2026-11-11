@@ -1,18 +1,19 @@
 import React from 'react';
 import { Project } from '../types/ecu';
-import { Download, Printer, Shield, Globe, FolderKanban, Menu } from 'lucide-react';
+import { Download, Printer, Shield, Globe, FolderKanban, Menu, Binary, Home } from 'lucide-react';
 
 interface TopBarProps {
   project: Project;
   isMizo: boolean;
   onToggleLanguage: () => void;
   onOpenProjects: () => void;
+  onOpenGateway: () => void;
   onOpenAudit: () => void;
   onOpenPdfReport: () => void;
   onOpenGuide: () => void;
   onExportBinary: () => void;
-  activeNavTab: 'maps' | 'dtcs' | 'immo';
-  onSelectNavTab: (tab: 'maps' | 'dtcs' | 'immo') => void;
+  activeNavTab: 'maps' | 'dtcs' | 'immo' | 'hex';
+  onSelectNavTab: (tab: 'maps' | 'dtcs' | 'immo' | 'hex') => void;
   onToggleSidebar?: () => void;
 }
 
@@ -21,6 +22,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   isMizo,
   onToggleLanguage,
   onOpenProjects,
+  onOpenGateway,
   onOpenAudit,
   onOpenPdfReport,
   onOpenGuide,
@@ -31,7 +33,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 }) => {
   return (
     <header className="no-print flex items-center justify-between gap-3 sm:gap-6 px-3 sm:px-6 py-2 landscape:py-1.5 bg-slate-950 border-b border-slate-800 text-slate-100 select-none shrink-0">
-      {/* Zone 1: Brand & Sidebar Drawer Toggle */}
+      {/* Zone 1: Brand & Sidebar Drawer Toggle & Home Gateway */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {onToggleSidebar && (
           <button
@@ -43,17 +45,14 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
         )}
 
-        <a
-          href="/"
-          onClick={e => {
-            e.preventDefault();
-            onOpenProjects();
-          }}
+        <button
+          onClick={onOpenGateway}
           className="text-xs sm:text-sm md:text-base font-extrabold tracking-tight text-slate-100 whitespace-nowrap hover:text-blue-400 transition-colors flex items-center gap-1.5 sm:gap-2"
+          title={isMizo ? 'Project Gateway-ah let rawh' : 'Return to Project Launcher Gateway'}
         >
           <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-sm bg-blue-500 inline-block shadow-sm shadow-blue-500" />
           ApexECU
-        </a>
+        </button>
 
         {/* Current Active Project & Plate Pill */}
         <button
@@ -67,7 +66,16 @@ export const TopBar: React.FC<TopBarProps> = ({
       </div>
 
       {/* Zone 2: Navigation Links (Compact in Landscape) */}
-      <nav className="flex items-center gap-2 sm:gap-4 md:gap-6 text-xs font-medium text-slate-400 overflow-x-auto no-scrollbar py-0.5">
+      <nav className="flex items-center gap-2 sm:gap-4 md:gap-5 text-xs font-medium text-slate-400 overflow-x-auto no-scrollbar py-0.5">
+        <button
+          onClick={onOpenGateway}
+          className="hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 text-[11px] sm:text-xs flex items-center gap-1 text-slate-300"
+          title={isMizo ? 'Project hawnna gateway' : 'Project Launchpad Gateway'}
+        >
+          <Home className="w-3.5 h-3.5 text-blue-400" />
+          <span>{isMizo ? 'Launcher' : 'Home'}</span>
+        </button>
+
         <button
           onClick={() => onSelectNavTab('maps')}
           className={`hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 text-[11px] sm:text-xs ${
@@ -75,6 +83,16 @@ export const TopBar: React.FC<TopBarProps> = ({
           }`}
         >
           {isMizo ? '3D Maps' : 'Maps'}
+        </button>
+
+        <button
+          onClick={() => onSelectNavTab('hex')}
+          className={`hover:text-slate-100 transition-colors whitespace-nowrap shrink-0 text-[11px] sm:text-xs flex items-center gap-1 ${
+            activeNavTab === 'hex' ? 'text-blue-400 font-semibold' : ''
+          }`}
+        >
+          <Binary className="w-3.5 h-3.5" />
+          <span>{isMizo ? 'Flash Chipchiar' : 'Hex Sector'}</span>
         </button>
 
         <button

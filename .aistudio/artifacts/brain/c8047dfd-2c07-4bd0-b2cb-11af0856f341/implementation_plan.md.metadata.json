@@ -1,6 +1,6 @@
 {
-  "summary":  "Updated implementation plan in Mizo incorporating the Stored Fault Code (DTC) & EEPROM Reader module. When a flash file (.bin) or EEPROM dump (.bin/.eep) is opened, it automatically scans for stored active and pending error codes (Fehlerspeicher), displays standard SAE/OEM descriptions with Mizo explanations, and provides a 1-click feature to clear stored fault codes directly in the dump.",
-  "updatedAt":  "2026-11-10T09:53:11.814473233Z",
+  "summary":  "Updated implementation plan incorporating the AI Calibration Engineer Copilot (Software Engineer AI) with dual assistance modes: real-time live map hazard alerts (overboost, lean AFR, knock risk, steep cliffs) with 1-click auto-smoothing, and a conversational AI Calibration Engineer copilot powered by Gemini 3.8 Flash via server-side API proxy for deep map analysis, advice in Mizo, and custom tuning curve generation.",
+  "updatedAt":  "2026-11-10T14:06:45.209275579Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

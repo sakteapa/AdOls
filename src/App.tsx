@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Project, TuneMetrics } from './types/ecu';
 import { SAMPLE_VEHICLES } from './data/sampleVehicles';
 import {
@@ -13,11 +13,20 @@ import {
   toggleImmobilizer,
   exportModifiedBinary,
 } from './utils/binaryEngine';
+import {
+  analyzeMapHazards,
+  smoothMapMatrix,
+  clampMapMatrix,
+} from './utils/tuningHeuristics';
 
+import { ProjectGateway } from './components/ProjectGateway';
 import { TopBar } from './components/TopBar';
 import { MapSidebar } from './components/MapSidebar';
 import { Map3DVisualizer } from './components/Map3DVisualizer';
 import { TableEditor } from './components/TableEditor';
+import { LiveHazardAlert } from './components/LiveHazardAlert';
+import { AiCalibrationCopilot } from './components/AiCalibrationCopilot';
+import { DeepHexInspector } from './components/DeepHexInspector';
 import { ForensicBanner } from './components/ForensicBanner';
 import { TuningControlPanel } from './components/TuningControlPanel';
 import { DtcFaultManager } from './components/DtcFaultManager';
@@ -26,11 +35,14 @@ import { AuditMatrixModal } from './components/AuditMatrixModal';
 import { PrintableReportPdf } from './components/PrintableReportPdf';
 import { ProjectManagerModal } from './components/ProjectManagerModal';
 import { MizoGuideModal } from './components/MizoGuideModal';
-import { Layers, ChevronRight } from 'lucide-react';
+import { Layers, Bot, Sparkles, Binary } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'apex_ecu_projects_v1';
 
 export default function App() {
+  // Application starts from the Gateway / Launchpad screen: 'gateway' | 'workspace'
+  const [currentScreen, setCurrentScreen] = useState<'gateway' | 'workspace'>('gateway');
+
   // Saved projects store
   const [savedProjects, setSavedProjects] = useState<Project[]>(() => {
     try {
@@ -52,17 +64,18 @@ export default function App() {
   // Sidebar toggle state for mobile & mobile landscape
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
-  // Modal visibility states
+  // Modal & Drawer visibility states
   const [isProjectModalOpen, setIsProjectModalOpen] = useState<boolean>(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
+  const [isAiCopilotOpen, setIsAiCopilotOpen] = useState<boolean>(false);
 
   // Language state (Defaults to true for Mizo per user brief)
   const [isMizo, setIsMizo] = useState<boolean>(true);
 
   // Main active navigation view
-  const [activeNavTab, setActiveNavTab] = useState<'maps' | 'dtcs' | 'immo'>('maps');
+  const [activeNavTab, setActiveNavTab] = useState<'maps' | 'dtcs' | 'immo' | 'hex'>('maps');
 
   // Currently selected map cell for micro-editing
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
@@ -91,7 +104,18 @@ export default function App() {
   // Currently active selected map
   const currentMap = activeProject.maps.find(m => m.id === activeProject.selectedMapId) || activeProject.maps[0];
 
+  // Sub-millisecond real-time tuning hazards detection
+  const liveHazards = useMemo(() => {
+    if (!currentMap) return [];
+    return analyzeMapHazards(currentMap);
+  }, [currentMap]);
+
   // Handlers
+  const handleSelectProjectAndOpenWorkspace = (project: Project) => {
+    updateProject(project);
+    setCurrentScreen('workspace');
+  };
+
   const handleSelectMap = (mapId: string) => {
     updateProject({
       ...activeProject,
@@ -118,6 +142,33 @@ export default function App() {
       checksumValue: '0x' + Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0'),
       updatedAt: new Date().toISOString(),
     });
+  };
+
+  // 1-Click Hazard Auto-Smooth Handler
+  const handleAutoSmooth = () => {
+    if (!currentMap) return;
+    const smoothed = smoothMapMatrix(currentMap.data);
+    handleUpdateMapData(smoothed);
+  };
+
+  // 1-Click Hazard Clamp Handler
+  const handleClampSafe = (ceiling: number) => {
+    if (!currentMap) return;
+    const clamped = clampMapMatrix(currentMap.data, ceiling);
+    handleUpdateMapData(clamped);
+  };
+
+  // AI Copilot Action Recommendation Handler
+  const handleApplyAiRecommendation = (action: 'smooth' | 'clamp' | 'scale', factor?: number) => {
+    if (!currentMap) return;
+    if (action === 'smooth') {
+      handleAutoSmooth();
+    } else if (action === 'clamp') {
+      handleClampSafe(2350);
+    } else if (action === 'scale' && factor) {
+      const scaled = currentMap.data.map(row => row.map(v => Math.round(v * factor * 10) / 10));
+      handleUpdateMapData(scaled);
+    }
   };
 
   const handleApplyStage1 = () => {
@@ -178,14 +229,39 @@ export default function App() {
     }
   };
 
+  // If on Gateway Screen, render launchpad
+  if (currentScreen === 'gateway') {
+    return (
+      <>
+        <ProjectGateway
+          savedProjects={savedProjects}
+          activeProject={activeProject}
+          onSelectProjectAndOpenWorkspace={handleSelectProjectAndOpenWorkspace}
+          onDeleteProject={handleDeleteProject}
+          isMizo={isMizo}
+          onToggleLanguage={() => setIsMizo(!isMizo)}
+          onOpenGuide={() => setIsGuideModalOpen(true)}
+        />
+
+        {/* Mizo Tuning Guide Modal accessible from Gateway */}
+        <MizoGuideModal
+          isOpen={isGuideModalOpen}
+          onClose={() => setIsGuideModalOpen(false)}
+        />
+      </>
+    );
+  }
+
+  // Active Workspace Screen
   return (
-    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white relative">
       {/* Top Bar navigation */}
       <TopBar
         project={activeProject}
         isMizo={isMizo}
         onToggleLanguage={() => setIsMizo(!isMizo)}
         onOpenProjects={() => setIsProjectModalOpen(true)}
+        onOpenGateway={() => setCurrentScreen('gateway')}
         onOpenAudit={() => setIsAuditModalOpen(true)}
         onOpenPdfReport={() => setIsPdfModalOpen(true)}
         onOpenGuide={() => setIsGuideModalOpen(true)}
@@ -209,7 +285,7 @@ export default function App() {
         />
 
         {/* Center & Right Content Viewport */}
-        <main className="flex-1 flex flex-col overflow-y-auto p-3 sm:p-5 landscape:p-2.5 space-y-4 landscape:space-y-3">
+        <main className="flex-1 flex flex-col overflow-y-auto p-3 sm:p-5 landscape:p-2.5 space-y-4 landscape:space-y-3 pb-20 sm:pb-8">
           {/* Mobile Landscape Quick Map Switcher Strip */}
           {activeNavTab === 'maps' && (
             <div className="flex md:hidden items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
@@ -218,7 +294,7 @@ export default function App() {
                 className="px-2.5 py-1 bg-slate-900 border border-slate-800 rounded-lg text-slate-300 text-xs font-semibold flex items-center gap-1 shrink-0"
               >
                 <Layers className="w-3.5 h-3.5 text-blue-400" />
-                <span>{isMizo ? 'Maps Zawng' : 'All Maps'}</span>
+                <span>{isMizo ? 'Maps' : 'Maps'}</span>
               </button>
 
               {activeProject.maps.map(m => {
@@ -260,6 +336,15 @@ export default function App() {
                 />
               )}
 
+              {/* Real-time AI Hazard Monitor Bar */}
+              <LiveHazardAlert
+                hazards={liveHazards}
+                isMizo={isMizo}
+                onAutoSmooth={handleAutoSmooth}
+                onClampSafe={handleClampSafe}
+                onOpenAiCopilot={() => setIsAiCopilotOpen(true)}
+              />
+
               {/* Table Matrix Editor */}
               {currentMap && (
                 <TableEditor
@@ -282,7 +367,21 @@ export default function App() {
             </div>
           )}
 
-          {/* Nav Tab View 2: Stored Fault Codes (DTC) & EEPROM Diagnostics */}
+          {/* Nav Tab View 2: Deep Flash File & Hex Sector Inspector */}
+          {activeNavTab === 'hex' && (
+            <div className="space-y-4">
+              <DeepHexInspector
+                project={activeProject}
+                isMizo={isMizo}
+                onSelectMap={mapId => {
+                  handleSelectMap(mapId);
+                  setActiveNavTab('maps');
+                }}
+              />
+            </div>
+          )}
+
+          {/* Nav Tab View 3: Stored Fault Codes (DTC) & EEPROM Diagnostics */}
           {activeNavTab === 'dtcs' && (
             <div className="space-y-4">
               <DtcFaultManager
@@ -309,7 +408,7 @@ export default function App() {
             </div>
           )}
 
-          {/* Nav Tab View 3: Immobilizer Management */}
+          {/* Nav Tab View 4: Immobilizer Management */}
           {activeNavTab === 'immo' && (
             <div className="space-y-4">
               <ImmobilizerPanel
@@ -336,6 +435,32 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Floating AI Calibration Engineer Assistant Button */}
+      <button
+        onClick={() => setIsAiCopilotOpen(true)}
+        className="fixed bottom-4 right-4 z-30 px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-full shadow-2xl border border-blue-400/40 font-semibold text-xs flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+        title="Open AI Calibration Engineer Copilot"
+      >
+        <Bot className="w-4 h-4 text-blue-200" />
+        <span className="hidden sm:inline">
+          {isMizo ? 'AI Calibration Engineer' : 'AI Engineer Copilot'}
+        </span>
+        {liveHazards.length > 0 && (
+          <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping shadow-sm" />
+        )}
+      </button>
+
+      {/* AI Calibration Engineer Copilot Drawer */}
+      <AiCalibrationCopilot
+        isOpen={isAiCopilotOpen}
+        onClose={() => setIsAiCopilotOpen(false)}
+        map={currentMap}
+        vehicle={activeProject.vehicle}
+        hazards={liveHazards}
+        isMizo={isMizo}
+        onApplyRecommendation={handleApplyAiRecommendation}
+      />
 
       {/* Modals */}
       {/* 1. Project Manager Modal */}
